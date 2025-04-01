@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTMX OpenTelemetry Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #content-area {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px dashed #aaa;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>HTMX OpenTelemetry Integration Demo</h1>
+    
+    <div class="container">
+        <h2>HTMX Request Example</h2>
+        <p>Click the buttons below to trigger HTMX requests. Open the console to see the OpenTelemetry traces.</p>
+        
+        <button id="button1" hx-get="/api/data" hx-target="#content-area">
+            Load Data
+        </button>
+        
+        <button hx-post="/api/submit" hx-target="#content-area">
+            Submit Form
+        </button>
+        
+        <button hx-get="/api/error" hx-target="#content-area">
+            Trigger Error
+        </button>
+        
+        <div id="content-area">
+            Response will appear here...
+        </div>
+    </div>
+    
+    <!-- Mock API responses for demo purposes -->
+    <script>
+        // Simple mock server for demo purposes
+        function setupMockServer() {
+            const mockResponses = {
+                '/api/data': {
+                    status: 200,
+                    body: '<div><h3>Data Loaded Successfully</h3><p>This response was loaded via HTMX and traced with OpenTelemetry.</p><p>Timestamp: ' + new Date().toISOString() + '</p></div>'
+                },
+                '/api/submit': {
+                    status: 200,
+                    body: '<div><h3>Form Submitted</h3><p>Your form was successfully submitted and traced.</p><p>Timestamp: ' + new Date().toISOString() + '</p></div>'
+                },
+                '/api/error': {
+                    status: 500,
+                    body: '<div><h3>Error Occurred</h3><p>This is a simulated error response that will be traced.</p></div>'
+                }
+            };
+
+            // Override XMLHttpRequest for mocking
+            const originalXHR = window.XMLHttpRequest;
+            window.XMLHttpRequest = function() {
+                const xhr = new originalXHR();
+                const originalOpen = xhr.open;
+                const originalSend = xhr.send;
+
+                xhr.open = function(method, url) {
+                    this.method = method;
+                    this.url = url;
+                    originalOpen.apply(this, arguments);
+                };
+
+                xhr.send = function() {
+                    if (this.url in mockResponses) {
+                        const mockData = mockResponses[this.url];
+                        
+                        // Simulate network delay
+                        setTimeout(() => {
+                            // Set status
+                            Object.defineProperty(this, 'status', { value: mockData.status });
+                            Object.defineProperty(this, 'statusText', { value: mockData.status === 200 ? 'OK' : 'Internal Server Error' });
+                            
+                            // Set response
+                            Object.defineProperty(this, 'responseText', { value: mockData.body });
+                            
+                            // Trigger events
+                            if (this.onreadystatechange) {
+                                Object.defineProperty(this, 'readyState', { value: 4 });
+                                this.onreadystatechange();
+                            }
+                            
+                            if (mockData.status >= 200 && mockData.status < 300) {
+                                if (this.onload) this.onload();
+                            } else {
+                                if (this.onerror) this.onerror();
+                            }
+                        }, 500); // 500ms delay
+                    } else {
+                        originalSend.apply(this, arguments);
+                    }
+                };
+                
+                return xhr;
+            };
+        }
+        
+        window.addEventListener('DOMContentLoaded', setupMockServer);
+    </script>
+    
+    <!-- HTMX library -->
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    
+    <!-- Our bundled script will be injected here by webpack -->
+</body>
+</html>

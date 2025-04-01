@@ -4,3 +4,5 @@ tmp
 database.db
 database.db-shm
 database.db-wal
+front/node_modules
+front/dist
